@@ -1,0 +1,14 @@
+# Node dependencies
+node_modules/
+
+# Production build output
+dist/
+
+# Development cache
+.vite/
+.tempmediaStorage/
+
+# Operating system files
+Thumbs.db
+Desktop.ini
+.DS_Store

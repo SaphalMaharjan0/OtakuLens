@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OtakuLens - Anime & Manga Scene Identifier</title>
+  <meta name="description" content="Instantly identify where any anime screenshot or manga panel is from. Get the exact episode, timestamp, description, and preview clips.">
+  
+  <!-- Google Fonts: Space Grotesk & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  
+  <!-- Local CSS -->
+  <link rel="stylesheet" href="/style.css">
+  
+  <!-- Lucide Icons (CDN) -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <div class="app-background"></div>
+  
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="logo-area">
+        <div class="logo-glow"></div>
+        <i data-lucide="eye" class="logo-icon"></i>
+        <h1>Otaku<span>Lens</span></h1>
+      </div>
+      
+      <div class="header-actions">
+        <div class="api-status" id="api-status">
+          <span class="status-dot"></span>
+          <span class="status-text">trace.moe API Online</span>
+        </div>
+        <button id="theme-toggle" class="icon-button" title="Toggle Theme">
+          <i data-lucide="sun" class="sun-icon"></i>
+          <i data-lucide="moon" class="moon-icon hidden"></i>
+        </button>
+        <button id="toggle-history" class="btn btn-secondary">
+          <i data-lucide="history"></i>
+          <span>History</span>
+          <span id="history-count" class="badge">0</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Dashboard -->
+    <main class="app-main">
+      <div class="dashboard-grid">
+        
+        <!-- Left Column: Upload & Crop Area -->
+        <section class="panel upload-panel">
+          <div class="panel-header">
+            <i data-lucide="upload-cloud"></i>
+            <h2>Input Source</h2>
+          </div>
+          
+          <div class="panel-body">
+            <!-- Upload Drop Zone -->
+            <label for="file-input" id="drop-zone" class="drop-zone">
+              <input type="file" id="file-input" accept="image/*" style="display: none;">
+              <div class="drop-zone-content">
+                <i data-lucide="image" class="upload-icon animate-pulse"></i>
+                <h3>Drag & Drop Image</h3>
+                <p>or click to browse local files</p>
+                <span class="paste-badge"><i data-lucide="clipboard"></i> Paste from clipboard (Ctrl+V)</span>
+              </div>
+            </label>
+            
+            <!-- URL Input Bar -->
+            <div class="url-input-container">
+              <div class="input-wrapper">
+                <i data-lucide="link" class="input-icon"></i>
+                <input type="url" id="url-input" placeholder="Paste image URL here...">
+              </div>
+              <button id="url-fetch-btn" class="btn btn-primary-outline">Load</button>
+            </div>
+            
+            <!-- Cropper Panel (Hidden until image loaded) -->
+            <div id="cropper-container" class="cropper-container hidden">
+              <div class="cropper-wrapper">
+                <img id="cropper-image" src="" alt="To crop">
+              </div>
+              <div class="cropper-controls">
+                <button id="btn-rotate-left" class="btn btn-icon" title="Rotate Left">
+                  <i data-lucide="rotate-ccw"></i>
+                </button>
+                <button id="btn-rotate-right" class="btn btn-icon" title="Rotate Right">
+                  <i data-lucide="rotate-cw"></i>
+                </button>
+                <button id="btn-reset-crop" class="btn btn-icon" title="Reset Image">
+                  <i data-lucide="refresh-cw"></i>
+                </button>
+              </div>
+              <div class="action-buttons">
+                <button id="btn-identify" class="btn btn-primary btn-glowing">
+                  <i data-lucide="search"></i>
+                  <span>Identify Anime</span>
+                </button>
+                <button id="btn-saucenao" class="btn btn-secondary">
+                  <i data-lucide="book-open"></i>
+                  <span>Search SauceNAO (Manga)</span>
+                </button>
+                <button id="btn-new-upload" class="btn btn-danger">
+                  <i data-lucide="upload"></i>
+                  <span>Upload Different Image</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+        
+        <!-- Right Column: Results Area -->
+        <section class="panel results-panel" id="results-panel">
+          
+          <!-- Empty State -->
+          <div id="results-empty" class="results-state results-empty">
+            <div class="empty-glow"></div>
+            <i data-lucide="scan" class="empty-icon animate-spin-slow"></i>
+            <h3>No Scan Active</h3>
+            <p>Upload a screenshot from an anime, or a manga panel. Use the crop tool to remove subtitles and black bars for the highest identification accuracy.</p>
+          </div>
+          
+          <!-- Loading State -->
+          <div id="results-loading" class="results-state results-loading hidden">
+            <div class="radar-container">
+              <div class="radar-circle circle-1"></div>
+              <div class="radar-circle circle-2"></div>
+              <div class="radar-circle circle-3"></div>
+              <div class="radar-scan"></div>
+              <i data-lucide="eye" class="loading-icon animate-pulse"></i>
+            </div>
+            <h3 id="loading-status-text">Scanning trace.moe Database...</h3>
+            <div class="progress-bar">
+              <div class="progress-bar-fill" id="progress-fill"></div>
+            </div>
+            <p class="loading-subtitle">Comparing patterns, colors, and keyframes</p>
+          </div>
+          
+           <!-- Result Content -->
+          <div id="results-content" class="results-content hidden">
+            
+            <!-- Low Confidence Warning -->
+            <div id="low-confidence-alert" class="low-confidence-alert hidden">
+              <i data-lucide="alert-triangle" class="alert-icon"></i>
+              <div class="alert-body">
+                <h4>Low Confidence Match (<span id="alert-similarity-val">0.0%</span>)</h4>
+                <p>The match score is low. Tips: Use the crop tool to remove subtitles/black borders. If this is a manga panel or artwork, search on SauceNAO below.</p>
+              </div>
+            </div>
+            
+            <!-- Hero Banner -->
+            <div class="result-hero" id="result-hero">
+              <div class="hero-overlay"></div>
+              <img id="result-banner" class="result-banner" src="" alt="Anime Banner" onerror="this.style.display='none'">
+              <div class="hero-content">
+                <div class="match-meta">
+                  <span id="result-similarity" class="badge-similarity">98.4% Match</span>
+                  <span id="result-episode" class="badge-episode">Episode 12</span>
+                  <span id="result-timestamp" class="badge-time">14:32</span>
+                </div>
+                <h2 id="result-title-romaji">Anime Title Romaji</h2>
+                <h4 id="result-title-english">Anime Title English</h4>
+                <p id="result-title-native" class="native-title">進撃の巨人</p>
+              </div>
+            </div>
+            
+            <!-- Result Grid (Visual Proof & Meta Details) -->
+            <div class="result-details-grid">
+              
+              <!-- Video Preview (Left Card) -->
+              <div class="detail-card preview-card">
+                <div class="card-header">
+                  <i data-lucide="video"></i>
+                  <h3>Visual Proof</h3>
+                </div>
+                <div class="video-wrapper">
+                  <video id="result-video" autoplay loop muted playsinline src=""></video>
+                  <div class="video-controls">
+                    <button id="video-mute-btn" class="btn btn-icon-small" title="Toggle Sound">
+                      <i data-lucide="volume-x" id="mute-icon-muted"></i>
+                      <i data-lucide="volume-2" id="mute-icon-playing" class="hidden"></i>
+                    </button>
+                    <span class="video-label">Scene Loop</span>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Anime Metadata (Right Card) -->
+              <div class="detail-card metadata-card">
+                <div class="card-header">
+                  <i data-lucide="info"></i>
+                  <h3>Anime Details</h3>
+                </div>
+                <div class="metadata-body">
+                  <div class="meta-row">
+                    <span class="meta-label">Studio</span>
+                    <span class="meta-val" id="meta-studio">-</span>
+                  </div>
+                  <div class="meta-row">
+                    <span class="meta-label">Season</span>
+                    <span class="meta-val" id="meta-season">-</span>
+                  </div>
+                  <div class="meta-row">
+                    <span class="meta-label">Format</span>
+                    <span class="meta-val" id="meta-format">-</span>
+                  </div>
+                  
+                  <div class="genres-container" id="meta-genres">
+                    <!-- Genre tags here -->
+                  </div>
+                  
+                  <div class="synopsis-wrapper">
+                    <h4>Synopsis</h4>
+                    <p id="meta-synopsis">Anime synopsis text goes here...</p>
+                  </div>
+                  
+                  <div class="external-links">
+                    <a href="" id="link-anilist" target="_blank" class="btn btn-anilist">
+                      <i data-lucide="external-link"></i> AniList
+                    </a>
+                    <a href="" id="link-mal" target="_blank" class="btn btn-mal">
+                      <i data-lucide="external-link"></i> MyAnimeList
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Secondary Matches Accordion -->
+            <div class="secondary-matches-card" id="secondary-matches-card">
+              <div class="card-header">
+                <i data-lucide="list"></i>
+                <h3>Alternative Matches</h3>
+              </div>
+              <div class="secondary-matches-list" id="secondary-matches-list">
+                <!-- Secondary match rows here -->
+              </div>
+            </div>
+            
+            <!-- Manga / Low Similarity Fallback Message -->
+            <div class="fallback-banner">
+              <div class="fallback-icon-container">
+                <i data-lucide="help-circle"></i>
+              </div>
+              <div class="fallback-text">
+                <h4>Not the right scene? Or is it a Manga panel?</h4>
+                <p>Trace.moe only matches officially animated anime episodes. For manga pages, fan art, or general illustration source details, click search on SauceNAO below.</p>
+              </div>
+              <div class="fallback-actions">
+                <button id="btn-fallback-saucenao" class="btn btn-secondary-outline">
+                  <i data-lucide="book-open"></i> SauceNAO Search
+                </button>
+              </div>
+            </div>
+            
+          </div>
+        </section>
+        
+      </div>
+    </main>
+    
+    <!-- History Drawer (Hidden initially) -->
+    <div id="history-drawer" class="history-drawer">
+      <div class="history-drawer-overlay" id="history-overlay"></div>
+      <div class="history-drawer-content">
+        <div class="drawer-header">
+          <div class="drawer-title">
+            <i data-lucide="history"></i>
+            <h2>Search History</h2>
+          </div>
+          <button id="close-history" class="icon-button" title="Close History">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+        <div class="drawer-body">
+          <div id="history-list" class="history-list">
+            <!-- History items populate here -->
+            <div class="history-empty">
+              <i data-lucide="history" class="history-empty-icon"></i>
+              <p>Your search history is empty</p>
+            </div>
+          </div>
+        </div>
+        <div class="drawer-footer">
+          <button id="clear-history" class="btn btn-danger btn-block">
+            <i data-lucide="trash-2"></i>
+            Clear Search History
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden Form for SauceNAO POST submission -->
+  <form id="saucenao-form" action="https://saucenao.com/search.php" method="POST" enctype="multipart/form-data" target="_blank" style="display: none;">
+    <input type="file" id="saucenao-file-input" name="file">
+  </form>
+
+  
+  <!-- Local JS logic -->
+  <script type="module" src="/main.js"></script>
+</body>
+</html>
