@@ -641,16 +641,50 @@ function renderAlternativeMatches(results) {
     const sec = Math.floor(timeSec % 60);
     const timeFormatted = `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
     
+    // Clean up filename for displaying a readable title
+    const cleanName = match.filename 
+      ? match.filename.replace(/\.[^/.]+$/, "").replace(/^[\[\(].*?[\]\)]\s*/g, "").replace(/_/g, " ") 
+      : `Alternative Source #${idx + 1}`;
+    
     row.innerHTML = `
-      <div class="match-info-left">
-        <div class="match-row-title">Alternative Source #${idx + 1} (AniList #${match.anilist})</div>
-        <div class="match-row-subtitle">Episode ${match.episode || 'N/A'} at timestamp ${timeFormatted}</div>
+      <div class="match-info-left-wrapper">
+        <div class="match-thumbnail-container">
+          <img src="${match.image}" alt="Preview" class="match-row-thumb">
+          <video src="${match.video}" loop muted playsinline class="match-row-video hidden"></video>
+          <div class="thumb-hover-overlay">
+            <i data-lucide="play" class="play-icon"></i>
+          </div>
+        </div>
+        <div class="match-info-left">
+          <div class="match-row-title">${cleanName}</div>
+          <div class="match-row-subtitle">Episode ${match.episode || 'N/A'} at timestamp ${timeFormatted}</div>
+        </div>
       </div>
       <div class="match-info-right">
         <span class="match-row-similarity ${simClass}">${similarityScore.toFixed(1)}%</span>
         <i data-lucide="chevron-right" style="width:16px; height:16px; opacity:0.5;"></i>
       </div>
     `;
+    
+    // Interactive hover triggers for mini video previews
+    const thumbImg = row.querySelector('.match-row-thumb');
+    const thumbVid = row.querySelector('.match-row-video');
+    
+    row.addEventListener('mouseenter', () => {
+      if (thumbVid) {
+        thumbImg.classList.add('hidden');
+        thumbVid.classList.remove('hidden');
+        thumbVid.play().catch(e => {});
+      }
+    });
+    
+    row.addEventListener('mouseleave', () => {
+      if (thumbVid) {
+        thumbVid.pause();
+        thumbVid.classList.add('hidden');
+        thumbImg.classList.remove('hidden');
+      }
+    });
     
     // Click listener to toggle this match as main
     row.addEventListener('click', async () => {
