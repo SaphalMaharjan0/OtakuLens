@@ -208,10 +208,12 @@ async function handleUrlFetch() {
   
   setLoadingState(true, "Fetching image URL...");
   
+  // Try fetching using a CORS proxy first (corsproxy.io)
+  const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+  
   try {
-    // Attempt to fetch URL as blob to bypass tainted canvas in cropper
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("Failed to fetch image");
+    const res = await fetch(proxyUrl);
+    if (!res.ok) throw new Error("CORS Proxy fetch failed");
     const blob = await res.blob();
     currentImageFile = blob;
     
@@ -222,19 +224,31 @@ async function handleUrlFetch() {
     };
     reader.readAsDataURL(blob);
   } catch (error) {
-    console.error(error);
-    setLoadingState(false);
+    console.warn("Primary CORS proxy failed, attempting fallback image proxy...", error);
     
-    // Detailed instructions to copy/paste image directly due to CORS restrictions
-    const confirmFallback = confirm(
-      "CORS Restriction: The server hosting this image doesn't allow direct external fetching.\n\n" +
-      "Would you like to try loading it directly in the cropper? Note: Some crops may fail due to canvas security. " +
-      "Alternatively, copy the image to your clipboard and press Ctrl+V."
-    );
-    
-    if (confirmFallback) {
-      currentImageFile = null; // Can't export file blob easily if tainted
-      setupCropper(url);
+    // Fallback to images.weserv.nl (specialized image redirect/cache proxy)
+    try {
+      const weservUrl = `https://images.weserv.nl/?url=${encodeURIComponent(url)}`;
+      const res = await fetch(weservUrl);
+      if (!res.ok) throw new Error("Weserv image proxy fetch failed");
+      const blob = await res.blob();
+      currentImageFile = blob;
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setLoadingState(false);
+        setupCropper(e.target.result);
+      };
+      reader.readAsDataURL(blob);
+    } catch (weservError) {
+      console.error("All CORS proxies failed to load the image:", weservError);
+      setLoadingState(false);
+      
+      // Guide the user on how to copy and paste the image directly
+      alert(
+        "Could not load the image from this link. The hosting website might be blocking proxy servers.\n\n" +
+        "Workaround: Right-click the image on the web page, select 'Copy Image', return here, and paste it directly (Ctrl+V)!"
+      );
     }
   }
 }
